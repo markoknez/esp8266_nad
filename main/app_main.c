@@ -1,16 +1,13 @@
 #include <stdio.h>
 #include <driver/gpio.h>
 #include <driver/pwm.h>
-#include "esp_wifi.h"
+#include <esp_event.h>
+#include "freertos/FreeRTOS.h"
 #include "esp_system.h"
-#include "nvs_flash.h"
-#include "esp_event.h"
-#include "esp_netif.h"
-#include "protocol_examples_common.h"
 #include "esp_log.h"
 
-#define GPIO_LED 2
-#define GPIO_IR_RECEIVER 3
+#define GPIO_TTL 14
+#define GPIO_IR_RECEIVER 12
 
 static const char *TAG = "main";
 
@@ -20,42 +17,42 @@ void setupGpioInput();
 
 static void IRAM_ATTR infrared_handler(void *arg) {
     if (gpio_get_level(GPIO_IR_RECEIVER) == 1) {
-        pwm_start();
-    } else {
         pwm_stop(0x00);
+    } else {
+        pwm_start();
     }
 }
 
 void run() {
     setupGpioOutput();
     setupGpioInput();
-    pwm_start();
 }
 
 void setupGpioInput() {
-    //    gpio_config_t inputCfg;
-    //    inputCfg.pull_down_en = GPIO_PULLDOWN_ENABLE;
-    //    inputCfg.pull_up_en = GPIO_PULLUP_DISABLE;
-    //    inputCfg.intr_type = GPIO_INTR_ANYEDGE;
-    //    inputCfg.mode = GPIO_MODE_INPUT;
-    //    inputCfg.pin_bit_mask = 1 << GPIO_IR_RECEIVER;
-    //    gpio_config(&inputCfg);
-    //    gpio_isr_handler_add(GPIO_IR_RECEIVER, infrared_handler, NULL);
+    gpio_config_t inputCfg;
+    inputCfg.pull_down_en = GPIO_PULLDOWN_ENABLE;
+    inputCfg.pull_up_en = GPIO_PULLUP_DISABLE;
+    inputCfg.intr_type = GPIO_INTR_ANYEDGE;
+    inputCfg.mode = GPIO_MODE_INPUT;
+    inputCfg.pin_bit_mask = 1 << GPIO_IR_RECEIVER;
+    gpio_config(&inputCfg);
+    gpio_install_isr_service(0);
+    gpio_isr_handler_add(GPIO_IR_RECEIVER, infrared_handler, NULL);
 }
 
-void setupGpioOutput() {
-    gpio_config_t ledCfg;
-    ledCfg.pull_down_en = GPIO_PULLDOWN_DISABLE;
-    ledCfg.pull_up_en = GPIO_PULLUP_DISABLE;
-    ledCfg.intr_type = GPIO_INTR_DISABLE;
-    ledCfg.mode = GPIO_MODE_OUTPUT;
-    ledCfg.pin_bit_mask = 1 << GPIO_LED;
-    gpio_config(&ledCfg);
 
+uint32_t gpios[1] = {GPIO_TTL};
+uint32_t duty[1] = {13};
+float phase[1] = {-90};
+
+void setupGpioOutput() {
     // start pwm cycle
-    uint32_t gpios[1] = {1 << GPIO_LED};
-    uint32_t duty[1] = {10};
-    pwm_init(20, duty, 1, gpios);
+    /*enable tsf0 interrupt for pwm*/
+    REG_WRITE(PERIPHS_DPORT_BASEADDR, (REG_READ(PERIPHS_DPORT_BASEADDR) & ~0x1F) | 0x1);
+    REG_WRITE(INT_ENA_WDEV, REG_READ(INT_ENA_WDEV) | WDEV_TSF0_REACH_INT);
+
+    pwm_init(24, duty, 1, gpios);
+    pwm_set_phases(phase);
 }
 
 void app_main() {
