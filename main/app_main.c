@@ -6,8 +6,8 @@
 #include "esp_system.h"
 #include "esp_log.h"
 
-#define GPIO_TTL 14
-#define GPIO_IR_RECEIVER 12
+#define GPIO_TTL 14 //d5
+#define GPIO_IR_RECEIVER 12 //d6
 
 static const char *TAG = "main";
 
